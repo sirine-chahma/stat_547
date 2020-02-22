@@ -1,0 +1,414 @@
+---
+title: "stat547_vectorization"
+author: "Sirine"
+date: "21/02/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tictoc)
+library(datasets)
+library(tidyverse)
+```
+
+# Vectorized operations : basics
+
+## What is vectorization?
+
+There are several ways of applying the same operation to all the elements of a given vector. 
+
+You can use a loop : 
+
+```{r loop_multiplication}
+x <- c(1, 2, 3, 4)
+y <- c()
+
+for (i in 1:length(x)){
+  y[i] <- 2*x[i]
+}
+```
+
+Can you guess the values of `y`?
+
+```{r answser_loop_multiplication}
+y
+```
+
+But you can also use vectorized operations! 
+
+```{r vectorized_multiplication}
+x <- c(1, 2, 3, 4)
+
+y <- 2*x
+```
+
+Can you guess the value of `y`?
+
+```{r answer_vectorized_multiplication}
+y
+```
+
+You can also apply a different operation to each one of the values in a given vector. For example, we can sum the values of two vectors :  
+
+```{r loop_addition}
+x1 <- c(1, 2, 3, 4)
+x2 <- c(10, 20, 30, 40)
+y <- c()
+
+for (i in 1:length(x1)){
+  y[i] <- x1[i] + x2[i]
+}
+```
+
+Can you guess the values of `y`?
+
+```{r answer_loop_addition}
+y
+
+```
+
+Now, let's do the same thing using vectorization : 
+
+```{r vectorized_addition}
+x1 <- c(1, 2, 3, 4)
+x2 <- c(10, 20, 30, 40)
+
+y <- x1 + x2
+```
+
+Can you guess the values of `y`?
+
+```{r answer_vectorized_addition}
+y
+```
+
+## Why do we use vectorization?
+
+Let's come back to the first example we saw (multiply the values of a vector by 2), but let's use a bigger vector this time :
+
+```{r create_big_vector}
+x <- 1:100000000
+print(paste0('The length of x is ', length(x)))
+```
+
+Do you think the loop is going to be slower, faster, or will take the same time as the vectorized operation? 
+
+Let's time the `for` loop!
+
+```{r long_loop}
+
+y <- c()
+
+#start timming
+tic()
+for (i in 1:length(x)){
+  y[i] <- 2*x[i]
+}
+
+#end timming
+toc()
+```
+
+Let's take a look at the time taken by the vectorized operation now : 
+
+```{r long_vectorization}
+
+#start timming
+tic()
+
+y <- 2*x
+
+#end timming
+toc()
+```
+
+The vectorized operation is a lot faster than the `for` loop! It's usually recommended to use vectorized operation rather than regular loops.
+
+## Other vectorized operations
+
+Here are a few examples of other operations that are vectorized.
+
+- Check if the values of two vectors are the same : 
+
+```{r boolean_equal}
+
+x1 <- c(1, 2, 3, 4)
+x2 <- c(1, 2, 1, 2)
+
+y <- x1 == x2
+```
+
+Can you guess the values of `y`?
+
+```{r answer_boolean_equal}
+y
+```
+
+- Compare the values of two vectors :
+
+```{r boolean_greater}
+
+x1 <- c(1, 2, 3, 4)
+x2 <- c(1, 2, 1, 2)
+
+y <- x1 > x2
+```
+
+Can you guess the values of `y`?
+
+```{r answer_boolean_greater}
+y
+```
+
+- Logical comparaisons can also be used: 
+
+```{r logical}
+
+# compares each elements of each vector by position
+y <- c(TRUE, TRUE, TRUE) & c(FALSE, TRUE, TRUE)
+```
+
+Can you guess the values of `y`?
+
+```{r answer_logical}
+y
+```
+
+There are a lot of other operations that are vectorized! Here is a list of vector operators : [R Operators cheat sheet](https://cran.r-project.org/doc/contrib/Baggott-refcard-v2.pdf)
+
+# Functional programming using the `purrr` package
+
+Until now, we have just applied simple operations to vectors. The functions were only applied to a single element of the vector, which were doubles. What if we want to use data frames? In this case, one "element" becomes a whole vector (a column of the data frame), and the functions have to accept a vector as an input. 
+
+Let's now try to work with data frames. How do we apply a function to all the columns of a data frame?
+
+We are going to work with the `iris` data frame : 
+
+```{r load_df}
+#select only the columns that represents a numerical variable
+iris_df <- iris %>% 
+  select(-Species)
+
+head(iris_df)
+```
+
+Let's compute the mean of each column :
+
+```{r mean_loop}
+means <- vector("double", ncol(iris_df))
+
+for (i in seq_along(iris_df)) {
+    means[i] <- mean(iris_df[[i]], na.rm = TRUE)
+}
+```
+
+`means` contains the means of each column : 
+
+```{r answer_mean_loop}
+means
+```
+
+We can do the same to find the minimum of each column : 
+
+```{r min_loop}
+mins <- vector("double", ncol(iris_df))
+
+for (i in seq_along(iris_df)) {
+    mins[i] <- min(iris_df[[i]], na.rm = TRUE)
+}
+```
+
+`mins` contains the minimums of each column : 
+
+```{r answer_min_loop}
+mins
+```
+
+The two loops we just wrote seem to very similar to each other, we should try to write a function that takes the function we want to apply and a data frame as its inputs.
+
+```{r my_map_function}
+
+my_function <- function(x, fun)  {
+    value <- vector("double", ncol(x))
+    for (i in seq_along(x)) {
+        value[i] <- fun(x[[i]], na.rm = TRUE)
+    }
+    value
+}
+```
+
+Let's check if we find the same values as before : 
+
+```{r my_function_mean}
+my_function(iris_df, mean)
+```
+
+```{r my_function_min}
+my_function(iris_df, min)
+```
+
+We find exactly the same values as when we were using the for loop! 
+
+The function `my_function` we wrote above uses basically the same idea as the `map_dbl` function from the `purrr` package. The only difference is that the `purrr` package is coded in C and uses the ... for additional arguments.
+
+*Note*: We have just written a functional, which is a function that takes another function as an input, and returns a vector as an output. 
+
+## The most general `purrr` function: `map`
+
+The `purrr:map` function takes at least two arguments : a data frame and a function.
+
+`map(.x, .f, ...)`
+
+This means that we are going to apply the function `f` for every element of `x`.
+
+This image may help you to better understand what does the `purrr:map` function do : 
+
+<img src="https://d33wubrfki0l68.cloudfront.net/12f6af8404d9723dff9cc665028a35f07759299d/d0d9a/diagrams/functionals/map-list.png" width=500>
+
+*Note* : in this image, the elements of the object that is used as an input seem to be the rows, but when we use a data frame as the input, they actually correspond to the columns of the data frame.
+
+Let's calculate the mean of the columns of the iris data frame : 
+
+```{r purrr_mean_map}
+library(purrr)
+map(iris_df, mean)
+```
+
+The only difference with our `my_function` function we created above is that the output is a list! No, we are going to take a look at the other functions that exist in the `purrr` library.
+
+## Use the right `purrr::map*` function based on your desired output
+<img src="img/map_family.png" width=900>
+
+Source: Advanced R by Hadley Wickham
+
+Let's try to use the `purrr:map_dbl` function : 
+
+```{r purrr_mean_map_dbl}
+library(purrr)
+map_dbl(iris_df, mean)
+```
+
+This time, the output is a vector containing doubles! This is exactly what we had with the function we created.
+
+What if we want to specify some arguments of our function (ignore the NAs when we compute the mean for instance)? 
+
+
+## Specify some arguments of the function
+
+Let's introduce some missing data in our data frame : 
+
+```{r missing_data}
+iris_NA <- iris_df
+iris_NA[1, 1] <- NA
+```
+
+What happens if we use `purrr:map_dbl`? 
+```{r answer_map_dbl_NA}
+map_dbl(iris_NA, mean)
+```
+
+The mean of the first column is now equal to NA. To solve this issue, we can use `na.rm = TRUE` as an argument of the `mean` function. But how do we add this to our `map_dbl` call?
+
+We have to create what we call an anonymous function!
+
+```{r answer_map_dbl_anonymous_fun}
+map_dbl(iris_NA, function(df) mean(df, na.rm  = TRUE))
+```
+
+The general format of an anonymous function is `function(x) body of the function`. 
+For example, if you want to compute $4^2$ using an anonymous function, it would be : 
+
+```{r anonymous_fun_example}
+(function(x) x**2)(4)
+```
+
+The anonymous function is surrounded by round brackets, and so is the input of the anonymous function.
+
+*Note* : There is a shorter way to write anonymous functions : 
+
+```{r short_anonymous_fun}
+map_dbl(iris_NA, ~ mean(., na.rm  = TRUE))
+```
+
+The `function(df)` is replaced by `~` and the argument of the function is replaced by a `.`. 
+
+## Mapping with two data object
+
+So far, we have only used the `purrr:map` function that only takes one data object and one function as an argument. What if we want to do more complicated operations, that use a function that needs more than one input? 
+
+For example, how would you calculate the weighted means (using weighted.mean) of the columns of a given data frame, where the weights are in another data frame?
+
+Let's create a data frame that contains the weights : 
+
+```{r create_weights}
+
+weights <- tibble(weight_sepal_legth = rpois(nrow(iris_NA), 3),
+                 weight_sepal_width = rpois(nrow(iris_NA), 3),
+                 weight_petal_legth = rpois(nrow(iris_NA), 3), 
+                 weight_petal_width = rpois(nrow(iris_NA), 3),)
+```
+
+First, let's see what are the parameters of `weighted.mean`
+
+```{r weighted_mean_parameters}
+?weighted.mean
+```
+
+In order to know which `purrr:map*` function we have to use, let's take a look at the following table : 
+
+<img src="img/map_family.png" width=900>
+
+As we have two arguments, we should use the `purrr:map2*` function. As we want the output of the function to be a data frame, we are goint to use `purrr:map2_df`. 
+
+```{r map2_NA}
+map2_df(iris_NA, weights, weighted.mean)
+```
+
+We have the same issue as before because of the NAs... We have to use an anonymous function! 
+
+```{r map2_NA_anonymous_function}
+map2_df(iris_NA, weights, function(x, y) weighted.mean(x, y, na.rm = TRUE))
+```
+
+What would be the short form of this anonymous function?
+
+```{r answer_map2_NA_anonymous_function_short}
+map2_df(iris_NA, weights, ~ weighted.mean(.x, .y, na.rm = TRUE))
+```
+
+*Note* : if `y` has less elements than `x`, the elements of `y` will be used several times. 
+
+<img src="https://d33wubrfki0l68.cloudfront.net/55032525ec77409e381dcd200a47e1787e65b964/dcaef/diagrams/functionals/map2-recycle.png" width=400>
+
+This is very useful when `y` has only one element.
+
+## Mapping with more than two data object
+
+When we have more than two arguments, we should use the `purrr:pmap*` function.
+
+```{r pmap_example}
+f <-  function(x, y, z, arg = 0){
+  (x+y+z)/3 + arg
+  
+}
+
+pmap(list(c(1, 1), c(1, 2), c(1, 3)), f)
+```
+
+If we want to use an anonymous function, we have to us `..1, ..2, ..3`.
+
+```{r pmap_anonymous_function}
+
+pmap(list(c(1, 1), c(1, 2), c(1, 3)), ~ f(..1, ..2, ..3, arg=2))
+```
+
+*Note* : if you use `purrr:pmap*` on a single data frame, it will iterate row-wise!
+
+Example : Try to find the mean of all the rows of the `iris_df` dataset (which doesn't really make sense here, but it is for learning purposes).
+
+```{r answer_pmap_row}
+
+pmap(iris_df, ~ mean(.x)) %>% 
+  head()
+```
